@@ -1,0 +1,101 @@
+html{
+  width:100%;
+  height:100%;
+  background-color: black;
+  color:white;
+}
+
+body{
+  height:100%;
+  width:100%;
+}
+
+#root{
+  height:100%;
+  width:100%;
+}
+
+.App{
+  height:100%;
+}
+
+.seventeen{
+  height:100%;
+  width:100%;
+  display: flex;
+  flex-flow: column;
+}
+
+.layer{
+  white-space: nowrap;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-flow: row;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.sample{
+  height:100%;
+  width:300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toggles{
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-flow: row;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 24.9%,
+    grey 25%,
+    transparent 25.2%,
+    transparent 49.9%,
+    grey 50%,
+    transparent 50.1%,
+    transparent 74.9%,
+    grey 75%,
+    transparent 75.1%,
+    transparent 100%)
+    ;
+}
+
+.trig{
+  border:1pt solid blue !important;
+}
+
+
+.button{
+  border:1pt solid red;
+  width:100%;
+  margin:5px;
+  height:100%;
+  position: relative
+}
+
+.button.on{
+  background-color: red;
+}
+
+
+.sample button{
+  border: 1pt solid red;
+  background-color: transparent;
+  color: white;
+  margin: 15px 15px;
+  height:40px;
+  width:70px;
+}
+.sample button.on{
+  background:red;
+}
+
+.header{
+  height:200px;
+  background-color: grey;
+  width: 100%;
+}
