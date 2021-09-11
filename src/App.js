@@ -44,7 +44,7 @@ const defaultState = {
   // layers: ["piano", "orchestra", "flute", "strings", "guitar", "rap"].map(default_layer)
   // layers: ["choir","choir","choir","choir","drum","drum","drum", "drum"].map(default_layer)
   // layers: ["hiphop","hiphop","hiphop","hiphop","hiphop","hiphop"].map(default_layer)
-  layers: ["drum","drum","drum","drum","drum","drum","drum"].map(default_layer)
+  layers: ["drum","drum","drum","drum"].map(default_layer)
 }
 
 const get_sample = function(freesound_api_key, ac, query){
@@ -83,16 +83,34 @@ class RhythmProvider extends Component{
     super(props)
     this.state = {
       beat: 0,
+      beat_count:0,
       tempo: this.props.initialTempo,
-      speed: 1
+      speed: 1,
+      tempo_set_ts: null
     }
   }
 
+  now(){
+    return Number(new Date())
+  }
+
   initClock(){
-    this.clockTimeout = setInterval(()=>{
-      // console.log(this.state.beat+1);
-      this.setState({beat: this.state.beat+(1*this.state.speed)});
-    }, this.state.tempo*1000/60/16);
+    this.setState({tempo_set_ts: this.now()}, () => {
+      const loop = () => {
+        const beat = this.state.beat + this.state.speed;
+        const beat_count = this.state.beat_count+1;
+        this.setState({beat: beat, beat_count}, ()=>{
+          const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
+          this.timeout = setTimeout(loop, wait);
+        });
+      };
+      const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
+      this.timeout = setTimeout(loop, wait);
+    });
+    
+    // this.clockTimeout = setInterval(()=>{
+    //   // console.log(this.state.beat+1);
+    // }, this.state.tempo*1000/60/16);
   }
 
   componentDidMount(){
@@ -102,6 +120,9 @@ class RhythmProvider extends Component{
   }
 
   componentDidUpdate(prevProps, prevState){
+    if(prevState.tempo !== this.state.tempo){
+      this.setState({tempo_set_ts: this.now(), beat_count:0})
+    }
     if(prevProps.playing && !this.props.playing){
       clearTimeout(this.clockTimeout);
     } else if(!prevProps && this.props.playing){
@@ -163,8 +184,10 @@ const Layer = withRythmeContext (class extends Component{
       this.source.stop()
     }
     const offset = this.props.buffer.duration * this.props.start;
-    const duration = this.props.buffer.duration * this.props.end - offset;
+    const duration = Math.abs(this.props.buffer.duration * (this.props.start-this.props.end));
+    const playbackRate = this.props.playback_speed;
     this.source = ac.createBufferSource();
+    this.source.playbackRate.value = playbackRate;
     this.source.buffer = this.props.buffer;
     this.source.connect(ac.destination);
     this.source.start(0, offset, duration);
@@ -182,12 +205,17 @@ const Layer = withRythmeContext (class extends Component{
   }
 
   onStartChange(e){
-    console.log(e.target.value);
-    this.props.updateLayer({start:e.target.value});
+    const start = parseFloat(e.target.value)
+    this.props.updateLayer({start, end: Math.max(this.props.end, start)});
   }
 
   onEndChange(e){
     this.props.updateLayer({end:e.target.value})
+  }
+
+  onSpeedChange(e){
+    const speed = parseFloat(e.target.value)
+    this.props.updateLayer({playback_speed: speed});
   }
 
   onLengthChange(e){
@@ -214,6 +242,8 @@ const Layer = withRythmeContext (class extends Component{
     this.props.updateLayer({toggles});
   }
 
+
+
   render(){
     const breaks = [2,4,8,16,32].filter(x=>{
       return this.props.toggles.length/x === Math.floor(this.props.toggles.length/x)
@@ -235,6 +265,7 @@ const Layer = withRythmeContext (class extends Component{
           <div>
             <input value={this.props.start} onInput={this.onStartChange.bind(this)} type="number" min="0" max="1" step=".01"/>
             <input value={this.props.end} onInput={this.onEndChange.bind(this)} type="number" min="0" max="1" step=".01"/>
+            <input value={this.props.playback_speed} onInput={this.onSpeedChange.bind(this)} type="number" min="0" step=".1"/>
           </div>
           <div>
             <input type="number" value={this.props.toggles.length} step="1" min="0" onInput={this.onLengthChange.bind(this)}/>
@@ -243,6 +274,7 @@ const Layer = withRythmeContext (class extends Component{
             <button onClick={this.double.bind(this)}>x2</button>
             <button onClick={this.half.bind(this)}>1/2</button>
           </div>
+          
         </div>
         <div className="toggles">
           {this.props.toggles.map((x,i)=> <Button key={i} className={breaks.includes(i)?"tog":""} onClick={()=> this.props.onButtonToggle(i)} on={x} trig={i===this.props.contextValue.beat%this.props.toggles.length} />)}
@@ -259,17 +291,17 @@ const Header = withRythmeContext (class extends Component{
   }
 
   updateTempo(e){
-    const tempo = e.target.value;
+    const tempo = parseFloat(e.target.value);
     this.props.contextValue.updateContext({tempo});
   }
 
   updateBeat(e){
-    const beat = e.target.value;
+    const beat = parseInt(e.target.value);
     this.props.contextValue.updateContext({beat});
   }
 
   updateSpeed(e){
-    const speed = e.target.value;
+    const speed = parseFloat(e.target.value);
     this.props.contextValue.updateContext({speed});
   }
 
@@ -277,9 +309,12 @@ const Header = withRythmeContext (class extends Component{
   render(){
     return(
       <div class="header">
-        <input value={this.props.contextValue.tempo} onChange={this.updateTempo.bind(this)} type="number" step="0.01"/>
+        <input value={this.props.contextValue.tempo} onChange={this.updateTempo.bind(this)} type="number" step="0.5"/>
         <input value={this.props.contextValue.beat%64} onChange={this.updateBeat.bind(this)} type="number" step="1"/>
         <input value={this.props.contextValue.speed} onChange={this.updateSpeed.bind(this)} type="number" step="1"/>
+
+        <div>{this.props.contextValue.beat}</div>
+        <div>{this.props.contextValue.beat_count}</div>
 
       </div>
     )
