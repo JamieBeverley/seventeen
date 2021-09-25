@@ -41,10 +41,10 @@ const defaultState = {
   // layers: ["piano","melody","hat","bd","snare","flute"].map(default_layer)
   // layers: ["kick", "hat", "snare","tom","tom"].map(default_layer)
   // layers: ["piano", "orchestra", "flute", "strings", "guitar", "rap"].map(default_layer)
-  // layers: ["piano", "orchestra", "flute", "strings", "guitar", "rap"].map(default_layer)
+  layers: ["piano", "orchestra", "kick", "shaker", "hat", "snare"].map(default_layer)
   // layers: ["choir","choir","choir","choir","drum","drum","drum", "drum"].map(default_layer)
   // layers: ["hiphop","hiphop","hiphop","hiphop","hiphop","hiphop"].map(default_layer)
-  layers: ["drum","drum","drum","drum"].map(default_layer)
+  // layers: ["drum","drum","drum","drum"].map(default_layer)
 }
 
 const get_sample = function(freesound_api_key, ac, query){
@@ -76,18 +76,53 @@ const get_sample_by_id = function(freesound_api_key,ac, sound_id){
   )
 }
 
+const clip = (x,low, high) => Math.min(Math.max(x,low), high);
+
 /////////////////////////////////////////////////////////////////////////////////
 export const RhythmeContext = React.createContext({})
-class RhythmProvider extends Component{
+class SoundProvider extends Component{
   constructor(props){
     super(props)
+    this.ac = ac;
+    this.input = this.ac.createGain();
+
+    const reverb = this.ac.createConvolver;
+
+    const delayNode = this.ac.createDelay();
+    delayNode.delayTime.value = this.props.initialTempo/60/3;
+    const feedbackNode = this.ac.createGain();
+    feedbackNode.gain.value = 0.8;
+    delayNode.connect(feedbackNode);
+    feedbackNode.connect(delayNode);
+    
+    const delay = {
+      delayNode,
+      feedbackNode,
+      delayTime: delayNode.delayTime.value,
+
+    }
+
+
     this.state = {
       beat: 0,
       beat_count:0,
       tempo: this.props.initialTempo,
       speed: 1,
-      tempo_set_ts: null
+      tempo_set_ts: null,
     }
+  }
+
+  setDelayTime(delayTime){
+    this.state.delay.delayNode.delayTime.value = delayTime;
+    const delay = {...this.state.delay, delayTime};
+    this.setState(Object.assign(this.state, {delay}));
+  }
+
+  setDelayFeedback(value){
+    value = clip(value, 0, 1);
+    this.state.delay.feedbackNode.gain.value = value;
+    const delay = {...this.state.delay, feedback: value};
+    this.setState(Object.assign(this.state, {delay}));
   }
 
   now(){
@@ -138,7 +173,13 @@ class RhythmProvider extends Component{
   }
 
   render(){
-    const value = Object.assign(this.state,{updateContext: this.updateContext.bind(this)});
+    const value = Object.assign(this.state,{
+      // input: this.
+      updateContext: this.updateContext.bind(this),
+      setDelayFeedback: this.setDelayFeedback.bind(this),
+      setDelayTime: this.setDelayTime.bind(this)
+    });
+
     return(
       <RhythmeContext.Provider value={value}>
         {this.props.children}
@@ -237,12 +278,33 @@ const Layer = withRythmeContext (class extends Component{
   }
 
   half(){
-    const index = Math.floor(this.props.toggles.length/2);
+    const index = Math.max(1, Math.floor(this.props.toggles.length/2));
     const toggles = this.props.toggles.slice(0, index);
     this.props.updateLayer({toggles});
   }
 
+  renderToggles(){
+    const foldEvery = 16;
 
+    const toggles = this.props.toggles.map((x,i)=>
+      <Button
+        key={i}
+        onClick={()=> this.props.onButtonToggle(i)}
+        on={x}
+        trig={i===this.props.contextValue.beat%this.props.toggles.length}
+      />
+      );
+    const nFolds = Math.max(1, Math.ceil(toggles.length/foldEvery));
+    let togs = [];
+    for (let i = 1; i< (nFolds+1); i++){
+      if(nFolds>1){
+        debugger;
+      }
+      togs = [...togs, 
+        <div key={`row-${i}`} className="flex-row">{toggles.slice((i-1)*foldEvery,i*foldEvery)}</div>];
+    }
+    return togs;
+  }
 
   render(){
     const breaks = [2,4,8,16,32].filter(x=>{
@@ -250,6 +312,7 @@ const Layer = withRythmeContext (class extends Component{
    }).map(x=>{
      return this.props.toggles.length/x;
    });
+
 
     return (
       <div className="layer">
@@ -277,7 +340,7 @@ const Layer = withRythmeContext (class extends Component{
           
         </div>
         <div className="toggles">
-          {this.props.toggles.map((x,i)=> <Button key={i} className={breaks.includes(i)?"tog":""} onClick={()=> this.props.onButtonToggle(i)} on={x} trig={i===this.props.contextValue.beat%this.props.toggles.length} />)}
+          {this.renderToggles()}
         </div>
       </div>
     )
@@ -307,14 +370,21 @@ const Header = withRythmeContext (class extends Component{
 
 
   render(){
+    const beat = (this.props.contextValue.beat%16);
     return(
-      <div class="header">
+      <div className="header">
         <input value={this.props.contextValue.tempo} onChange={this.updateTempo.bind(this)} type="number" step="0.5"/>
         <input value={this.props.contextValue.beat%64} onChange={this.updateBeat.bind(this)} type="number" step="1"/>
         <input value={this.props.contextValue.speed} onChange={this.updateSpeed.bind(this)} type="number" step="1"/>
+        <span className={"metronome"}>
+          {[0,1,2,3,4,5,6,7].map(x=>x*2).map(i =>
+            <div key={i} className={beat > i ? "on":""} style={{display:"inline-block", width:"10px"}}/>
+            )
+          }
+        </span>
 
-        <div>{this.props.contextValue.beat}</div>
-        <div>{this.props.contextValue.beat_count}</div>
+        <div>beat current: {this.props.contextValue.beat}</div>
+        <div>total: {this.props.contextValue.beat_count}</div>
 
       </div>
     )
@@ -374,12 +444,12 @@ class Seventeen extends Component{
     })
 
     return (
-      <RhythmProvider initialTempo={120} playing={true}>
+      <SoundProvider initialTempo={120} playing={true}>
         <div className="seventeen">
           <Header/>
           {layers}
         </div>
-      </RhythmProvider>
+      </SoundProvider>
     )
   }
 }
@@ -389,8 +459,8 @@ class App extends Component{
   constructor(props){
     super(props)
     this.state = {
-      init:false,
-      apiKey: null
+      init: false,
+      apiKey: ""
     }
   }
 
@@ -415,14 +485,14 @@ class App extends Component{
     return(
       <div className="App">
         {
-          this.state.init && this.state.apiKey !== null ?
+          this.state.init && this.state.apiKey !== "" ?
             <Seventeen freesound_api_key={this.state.apiKey}/> :
             <div>
               <div>
                 Freesound api key:
                 <input value={this.state.apiKey} onChange={this.updateApiKey.bind(this)}></input>
               </div>
-              <button disabled={this.state.apiKey===null} onClick={this.init.bind(this)}>start</button>
+              <button disabled={this.state.apiKey===""} onClick={this.init.bind(this)}>start</button>
             </div>
         }
     </div>
