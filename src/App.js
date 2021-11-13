@@ -2,9 +2,9 @@ import logo from './logo.svg';
 import './App.css';
 import React, { Component } from 'react';
 import { render } from '@testing-library/react';
+import Synth from './components/Synths';
+import withAudioContext from './audioContext';
 
-var AudioContext = window.AudioContext || window.webkitAudioContext;
-var ac = new AudioContext();
 
 function repeat(x, n){
   return Array.apply(x, Array(n));
@@ -14,8 +14,8 @@ const default_layer = function(sample_query,id){
   return {
     id,
     sample_query,
-    // toggles: Array.apply(false, Array(Math.ceil(28*Math.random()+4))).map(x=> Math.random() >0.8 ? true : false),
-    toggles: repeat(false, 8),
+    toggles: Array.apply(false, Array(Math.ceil(28*Math.random()+4))).map(x=> Math.random() >0.8 ? true : false),
+    // toggles: repeat(false, 8),
     mute: true,
     playback_speed: 1,
     cut: true,
@@ -37,17 +37,18 @@ function init_from_sample_list(sample_query){
 
 const defaultState = {
   // layers: ["bd","snare","clap","closed_hat", "open_hat", "low_tom","hi_tom"].map(default_layer)
+  // layers: ["bd","snare","clap", "hat", "tom"].map(default_layer)
   // layers: ["kick","snare","hat","tom","piano","bass","tink","ambience","bop"].map(default_layer)
   // layers: ["piano","melody","hat","bd","snare","flute"].map(default_layer)
   // layers: ["kick", "hat", "snare","tom","tom"].map(default_layer)
   // layers: ["piano", "orchestra", "flute", "strings", "guitar", "rap"].map(default_layer)
-  layers: ["piano", "orchestra", "kick", "shaker", "hat", "snare"].map(default_layer)
+  // layers: ["piano", "orchestra", "kick", "shaker", "hat", "snare"].map(default_layer)
   // layers: ["choir","choir","choir","choir","drum","drum","drum", "drum"].map(default_layer)
   // layers: ["hiphop","hiphop","hiphop","hiphop","hiphop","hiphop"].map(default_layer)
-  // layers: ["drum","drum","drum","drum"].map(default_layer)
+  layers: ["drum","drum","drum","drum"].map(default_layer)
 }
 
-const get_sample = function(freesound_api_key, ac, query){
+const get_sample = function(ac, freesound_api_key, query){
   return (
     fetch(
       `https://freesound.org/apiv2/search/text/?query=${query}&page_size=30&token=${freesound_api_key}`,
@@ -56,12 +57,12 @@ const get_sample = function(freesound_api_key, ac, query){
       })
       .then(x =>{
         const id = x.results[Math.floor(x.results.length*Math.random())].id;
-        return get_sample_by_id(freesound_api_key, ac, id);
+        return get_sample_by_id(ac, freesound_api_key, id);
       })
       )
 }
 
-const get_sample_by_id = function(freesound_api_key,ac, sound_id){
+const get_sample_by_id = function(ac, freesound_api_key, sound_id){
   return (
     fetch(
       `https://freesound.org/apiv2/sounds/${sound_id}/?token=${freesound_api_key}`,
@@ -80,113 +81,114 @@ const clip = (x,low, high) => Math.min(Math.max(x,low), high);
 
 /////////////////////////////////////////////////////////////////////////////////
 export const RhythmeContext = React.createContext({})
-class SoundProvider extends Component{
-  constructor(props){
-    super(props)
-    this.ac = ac;
-    this.input = this.ac.createGain();
-
-    const reverb = this.ac.createConvolver;
-
-    const delayNode = this.ac.createDelay();
-    delayNode.delayTime.value = this.props.initialTempo/60/3;
-    const feedbackNode = this.ac.createGain();
-    feedbackNode.gain.value = 0.8;
-    delayNode.connect(feedbackNode);
-    feedbackNode.connect(delayNode);
-    
-    const delay = {
-      delayNode,
-      feedbackNode,
-      delayTime: delayNode.delayTime.value,
-
+const SoundProvider = withAudioContext(
+  class extends Component{
+    constructor(props){
+      super(props)
+      this.input = this.props.ac.createGain();
+  
+      const reverb = this.props.ac.createConvolver;
+  
+      const delayNode = this.props.ac.createDelay();
+      delayNode.delayTime.value = this.props.initialTempo/60/3;
+      const feedbackNode = this.props.ac.createGain();
+      feedbackNode.gain.value = 0.8;
+      delayNode.connect(feedbackNode);
+      feedbackNode.connect(delayNode);
+      
+      const delay = {
+        delayNode,
+        feedbackNode,
+        delayTime: delayNode.delayTime.value,
+  
+      }
+  
+  
+      this.state = {
+        beat: 0,
+        beat_count:0,
+        tempo: this.props.initialTempo,
+        speed: 1,
+        tempo_set_ts: null,
+      }
     }
-
-
-    this.state = {
-      beat: 0,
-      beat_count:0,
-      tempo: this.props.initialTempo,
-      speed: 1,
-      tempo_set_ts: null,
+  
+    setDelayTime(delayTime){
+      this.state.delay.delayNode.delayTime.value = delayTime;
+      const delay = {...this.state.delay, delayTime};
+      this.setState(Object.assign(this.state, {delay}));
+    }
+  
+    setDelayFeedback(value){
+      value = clip(value, 0, 1);
+      this.state.delay.feedbackNode.gain.value = value;
+      const delay = {...this.state.delay, feedback: value};
+      this.setState(Object.assign(this.state, {delay}));
+    }
+  
+    now(){
+      return Number(new Date())
+    }
+  
+    initClock(){
+      this.setState({tempo_set_ts: this.now()}, () => {
+        const loop = () => {
+          const beat = this.state.beat + this.state.speed;
+          const beat_count = this.state.beat_count+1;
+          this.setState({beat: beat, beat_count}, ()=>{
+            const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
+            this.timeout = setTimeout(loop, wait);
+          });
+        };
+        const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
+        this.timeout = setTimeout(loop, wait);
+      });
+      
+      // this.clockTimeout = setInterval(()=>{
+      //   // console.log(this.state.beat+1);
+      // }, this.state.tempo*1000/60/16);
+    }
+  
+    componentDidMount(){
+      if(this.props.playing){
+        this.initClock()
+      }
+    }
+  
+    componentDidUpdate(prevProps, prevState){
+      if(prevState.tempo !== this.state.tempo){
+        this.setState({tempo_set_ts: this.now(), beat_count:0})
+      }
+      if(prevProps.playing && !this.props.playing){
+        clearTimeout(this.clockTimeout);
+      } else if(!prevProps && this.props.playing){
+        this.initClock();
+      }
+      if(prevState.tempo !== this.state.tempo){
+  
+      }
+    }
+  
+    updateContext(items){
+      this.setState({...this.state, ...items});
+    }
+  
+    render(){
+      const value = Object.assign(this.state,{
+        // input: this.
+        updateContext: this.updateContext.bind(this),
+        setDelayFeedback: this.setDelayFeedback.bind(this),
+        setDelayTime: this.setDelayTime.bind(this)
+      });
+  
+      return(
+        <RhythmeContext.Provider value={value}>
+          {this.props.children}
+        </RhythmeContext.Provider>
+      )
     }
   }
-
-  setDelayTime(delayTime){
-    this.state.delay.delayNode.delayTime.value = delayTime;
-    const delay = {...this.state.delay, delayTime};
-    this.setState(Object.assign(this.state, {delay}));
-  }
-
-  setDelayFeedback(value){
-    value = clip(value, 0, 1);
-    this.state.delay.feedbackNode.gain.value = value;
-    const delay = {...this.state.delay, feedback: value};
-    this.setState(Object.assign(this.state, {delay}));
-  }
-
-  now(){
-    return Number(new Date())
-  }
-
-  initClock(){
-    this.setState({tempo_set_ts: this.now()}, () => {
-      const loop = () => {
-        const beat = this.state.beat + this.state.speed;
-        const beat_count = this.state.beat_count+1;
-        this.setState({beat: beat, beat_count}, ()=>{
-          const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
-          this.timeout = setTimeout(loop, wait);
-        });
-      };
-      const wait = (this.state.beat_count*1000*15/this.state.tempo+this.state.tempo_set_ts) - this.now();
-      this.timeout = setTimeout(loop, wait);
-    });
-    
-    // this.clockTimeout = setInterval(()=>{
-    //   // console.log(this.state.beat+1);
-    // }, this.state.tempo*1000/60/16);
-  }
-
-  componentDidMount(){
-    if(this.props.playing){
-      this.initClock()
-    }
-  }
-
-  componentDidUpdate(prevProps, prevState){
-    if(prevState.tempo !== this.state.tempo){
-      this.setState({tempo_set_ts: this.now(), beat_count:0})
-    }
-    if(prevProps.playing && !this.props.playing){
-      clearTimeout(this.clockTimeout);
-    } else if(!prevProps && this.props.playing){
-      this.initClock();
-    }
-    if(prevState.tempo !== this.state.tempo){
-
-    }
-  }
-
-  updateContext(items){
-    this.setState({...this.state, ...items});
-  }
-
-  render(){
-    const value = Object.assign(this.state,{
-      // input: this.
-      updateContext: this.updateContext.bind(this),
-      setDelayFeedback: this.setDelayFeedback.bind(this),
-      setDelayTime: this.setDelayTime.bind(this)
-    });
-
-    return(
-      <RhythmeContext.Provider value={value}>
-        {this.props.children}
-      </RhythmeContext.Provider>
-    )
-  }
-}
+)
 const withRythmeContext = Wrapped => props =>(
   <RhythmeContext.Consumer>
     {context => <Wrapped {...props} contextValue={context}/>}
@@ -204,7 +206,7 @@ class Button extends Component {
   }
 }
 
-const Layer = withRythmeContext (class extends Component{
+const Layer = withRythmeContext (withAudioContext(class extends Component{
 
   componentDidUpdate(prevProps, prevState){
     if(prevProps.contextValue.beat !== this.props.contextValue.beat){
@@ -227,10 +229,10 @@ const Layer = withRythmeContext (class extends Component{
     const offset = this.props.buffer.duration * this.props.start;
     const duration = Math.abs(this.props.buffer.duration * (this.props.start-this.props.end));
     const playbackRate = this.props.playback_speed;
-    this.source = ac.createBufferSource();
+    this.source = this.props.ac.createBufferSource();
     this.source.playbackRate.value = playbackRate;
     this.source.buffer = this.props.buffer;
-    this.source.connect(ac.destination);
+    this.source.connect(this.props.ac.destination);
     this.source.start(0, offset, duration);
   }
 
@@ -345,7 +347,7 @@ const Layer = withRythmeContext (class extends Component{
       </div>
     )
   }
-});
+}));
 
 
 const Header = withRythmeContext (class extends Component{
@@ -392,68 +394,69 @@ const Header = withRythmeContext (class extends Component{
 })
 
 
-class Seventeen extends Component{
-  constructor(props){
-    super(props)
-    this.state = defaultState;
-  }
-
-  componentDidMount(){
-    Object.keys(this.state.layers).forEach(id=>{
-      const x = this.state.layers[id];
-      get_sample(this.props.freesound_api_key, ac, x.sample_query).then(({buffer, freesound_data})=>{
-        const layers = this.state.layers;
-        layers[id].buffer = buffer;
-        layers[id].freesound_data = freesound_data;
-        console.log(`Loaded sample ${id}`);
-        this.setState({layers});
+const Seventeen = withAudioContext(
+  class extends Component{
+    constructor(props){
+      super(props)
+      this.state = defaultState;
+    }
+  
+    componentDidMount(){
+      Object.keys(this.state.layers).forEach(id=>{
+        const x = this.state.layers[id];
+        get_sample(this.props.ac, this.props.freesound_api_key, x.sample_query).then(({buffer, freesound_data})=>{
+          const layers = this.state.layers;
+          layers[id].buffer = buffer;
+          layers[id].freesound_data = freesound_data;
+          console.log(`Loaded sample ${id}`);
+          this.setState({layers});
+        });
       });
-    });
-  }
-
-  onButtonToggle(id, index){
-    const layers = this.state.layers;
-    layers[id].toggles[index] = !layers[id].toggles[index];
-    this.setState({layers});
-  }
-
-  onMute(id){
-    const layers = this.state.layers;
-    layers[id].mute = !layers[id].mute;
-    this.setState({layers});
-  }
-
-  updateLayer(id, vals){
-    const layers = this.state.layers;
-    layers[id] = {...layers[id], ...vals};
-    this.setState({layers});
-  }
-
-  render(){
-    const layers = Object.keys(this.state.layers).map((id)=>{
-      const layer = this.state.layers[id];
+    }
+  
+    onButtonToggle(id, index){
+      const layers = this.state.layers;
+      layers[id].toggles[index] = !layers[id].toggles[index];
+      this.setState({layers});
+    }
+  
+    onMute(id){
+      const layers = this.state.layers;
+      layers[id].mute = !layers[id].mute;
+      this.setState({layers});
+    }
+  
+    updateLayer(id, vals){
+      const layers = this.state.layers;
+      layers[id] = {...layers[id], ...vals};
+      this.setState({layers});
+    }
+  
+    render(){
+      const layers = Object.keys(this.state.layers).map((id)=>{
+        const layer = this.state.layers[id];
+        return (
+          <Layer
+            key={id}
+            onMute={()=>{this.onMute.call(this,id)}}
+            onButtonToggle={(btn_index)=>{this.onButtonToggle.call(this,id,btn_index)}}
+            updateLayer={(vals)=>{this.updateLayer.call(this, id, vals)}}
+            {...layer}
+          />
+        )
+      })
+  
       return (
-        <Layer
-          key={id}
-          onMute={()=>{this.onMute.call(this,id)}}
-          onButtonToggle={(btn_index)=>{this.onButtonToggle.call(this,id,btn_index)}}
-          updateLayer={(vals)=>{this.updateLayer.call(this, id, vals)}}
-          {...layer}
-        />
+        <SoundProvider initialTempo={120} playing={true}>
+          <div className="seventeen">
+            <Header/>
+            {layers}
+          </div>
+        </SoundProvider>
       )
-    })
-
-    return (
-      <SoundProvider initialTempo={120} playing={true}>
-        <div className="seventeen">
-          <Header/>
-          {layers}
-        </div>
-      </SoundProvider>
-    )
+    }
   }
-}
-
+)
 
 class App extends Component{
   constructor(props){
@@ -473,7 +476,7 @@ class App extends Component{
 
   updateApiKey(e){
     this.setState({apiKey: e.target.value});
-  }
+  }g
 
   init(){
     this.setState({init:true});

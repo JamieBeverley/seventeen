@@ -1,15 +1,19 @@
-import NodeComponent from '../NodeComponent';
+import React from 'react';
+import {asNode} from '../NodeComponent';
 
-class MixerNode extends NodeComponent {
-    constructor(props){
-        super(props)
+const MixerNode = asNode(class extends React.Component {
+    constructor(props){ 
+        super(props);
+        this.node = this.props.ac.createGain();
+        this.node.connect(this.props.output);
     }
 
     connectChildren(){
-        this.props.children.forEach(child => {
-            this.input.connect(child.input);
-            child.output.connect(this.output);
-        });
+        // this.props.children.forEach(child => {
+        //     // this.props.input.connect(child.props.input);
+        //     debugger;
+        //     child.props.output.connect(this.props.output);
+        // });
     }
 
     componentDidMount(){
@@ -35,6 +39,6 @@ class MixerNode extends NodeComponent {
             </>
         )
     }
-}
+})
  
 export default MixerNode;
