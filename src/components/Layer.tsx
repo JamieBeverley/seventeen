@@ -281,15 +281,14 @@ class LayerInner extends Component<LayerProps> {
     return (
       <div className="layer">
         <div className="sample">
-          <div>
-            <b style={{ display: 'inline-block' }}>{this.props.sample_query} </b>
-            {isAudio &&
-              ` ${this.props.freesound_data.name ?? ''} (${this.props.freesound_data.username ?? ''})`}
+          <div className="sample-name">
+            <b>{this.props.sample_query}</b>
+            {isAudio && this.props.freesound_data.name &&
+              ` ${this.props.freesound_data.name} (${this.props.freesound_data.username ?? ''})`}
           </div>
 
           <div>
             <button
-              style={{ display: 'inline-block' }}
               className={this.props.mute ? 'on' : ''}
               onClick={this.onMute.bind(this)}
             >
