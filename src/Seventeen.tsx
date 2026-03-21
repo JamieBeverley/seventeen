@@ -3,8 +3,9 @@ import { getAC } from './audio';
 import { Header } from './components/Header';
 import { Layer } from './components/Layer';
 import { MidiSettings } from './components/MidiSettings';
+import { ProjectControls } from './components/ProjectControls';
 import { SoundProvider } from './context/RhythmeContext';
-import { get_sample } from './freesound';
+import { get_sample, get_sample_by_id } from './freesound';
 import { Layer as LayerData, LayerMap, SeventeenState, repeat } from './types';
 
 const default_layer = (sample_query: string, id: number): LayerData => ({
@@ -23,35 +24,54 @@ const default_layer = (sample_query: string, id: number): LayerData => ({
   output: { type: 'audio' },
 });
 
-const defaultState: SeventeenState = {
-  layers: ['piano', 'orchestra', 'kick', 'shaker', 'hat', 'snare'].map(
-    default_layer
-  ) as unknown as LayerMap,
-};
+const defaultLayers: LayerMap = ['piano', 'orchestra', 'kick', 'shaker', 'hat', 'snare']
+  .map(default_layer) as unknown as LayerMap;
 
 interface SeventeenProps {
   freesound_api_key: string;
+  initialTempo?: number;
 }
 
 export class Seventeen extends Component<SeventeenProps, SeventeenState> {
   constructor(props: SeventeenProps) {
     super(props);
-    this.state = defaultState;
+    this.state = { layers: defaultLayers };
   }
 
   componentDidMount(): void {
-    (Object.keys(this.state.layers) as unknown as number[]).forEach((id) => {
-      const key = id as unknown as keyof LayerMap;
-      const x = this.state.layers[key];
-      get_sample(this.props.freesound_api_key, getAC(), x.sample_query).then(
-        ({ buffer, freesound_data }) => {
-          const layers = { ...this.state.layers };
-          layers[key] = { ...layers[key], buffer, freesound_data };
-          console.log(`Loaded sample ${String(id)}`);
-          this.setState({ layers });
-        }
-      );
+    this.fetchMissingBuffers(this.state.layers);
+  }
+
+  /**
+   * Fetch audio for any layer whose buffer is null.
+   * If the layer has a saved freesound_id, reload the exact sample;
+   * otherwise pick a random one from the search query.
+   */
+  fetchMissingBuffers(layers: LayerMap): void {
+    const apiKey = this.props.freesound_api_key;
+    const ctx = getAC();
+    Object.entries(layers).forEach(([idStr, layer]) => {
+      if (layer.buffer !== null) return;
+      const key = parseInt(idStr, 10) as unknown as keyof LayerMap;
+      const fetch$ =
+        layer.freesound_data.id != null
+          ? get_sample_by_id(apiKey, ctx, layer.freesound_data.id)
+          : get_sample(apiKey, ctx, layer.sample_query);
+      fetch$
+        .then(({ buffer, freesound_data }) => {
+          this.setState((s) => ({
+            layers: {
+              ...s.layers,
+              [key]: { ...s.layers[key], buffer, freesound_data },
+            },
+          }));
+        })
+        .catch(console.error);
     });
+  }
+
+  handleProjectLoad(layers: LayerMap): void {
+    this.setState({ layers }, () => this.fetchMissingBuffers(this.state.layers));
   }
 
   onButtonToggle(id: string, index: number): void {
@@ -92,10 +112,14 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
     });
 
     return (
-      <SoundProvider initialTempo={120} playing={true}>
+      <SoundProvider initialTempo={this.props.initialTempo ?? 120} playing={true}>
         <div className="seventeen">
           <Header />
           <MidiSettings />
+          <ProjectControls
+            layers={this.state.layers}
+            onProjectLoad={this.handleProjectLoad.bind(this)}
+          />
           {layers}
         </div>
       </SoundProvider>
