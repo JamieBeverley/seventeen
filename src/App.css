@@ -1,148 +1,351 @@
-html{
-  width:100%;
-  height:100%;
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
   background-color: #3f3f3f;
-  color:white;
+  color: white;
 }
 
-body{
-  height:100%;
-  width:100%;
-}
-
-#root{
-  height:100%;
-  width:100%;
-}
-
-.App{
-  height:100%;
-}
-
-.seventeen{
-  height:100%;
-  width:100%;
-  display: flex;
-  flex-flow: column;
-}
-
-.layer{
-  white-space: nowrap;
-  padding: 20px;
+.App {
   height: 100%;
   display: flex;
-  flex-flow: row;
+  flex-direction: column;
+}
+
+/* ── Top-level sequencer shell ─────────────────────────────────────────── */
+
+.seventeen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+}
+
+.toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(20, 20, 20);
+  border-bottom: 1px solid #555;
+  padding: 0 8px;
+  height: 40px;
+  box-sizing: border-box;
+  gap: 8px;
+}
+
+/* ── Header (lives inside toolbar) ────────────────────────────────────── */
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.header__title {
+  font-weight: bold;
+  margin-right: 4px;
+}
+
+.header__field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
 }
 
-.sample{
-  height:100%;
-  width:500px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.header input {
+  width: 50px;
 }
 
-.toggles{
-  height: 100%;
-  width: 100%;
+.header__settings-btn {
+  margin-left: auto;
+}
+
+.metronome {
   display: flex;
-  flex-flow: column;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.metronome__tick {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 1px solid lightgrey;
+  box-sizing: border-box;
+}
+
+.metronome__tick--on {
+  background: white;
+}
+
+/* ── Project controls (lives inside toolbar) ──────────────────────────── */
+
+.project-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+/* ── Layers ────────────────────────────────────────────────────────────── */
+
+.layers {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.layer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  font-size: 11px;
+  padding: 2px 8px;
+  box-sizing: border-box;
+  border-bottom: 1px solid #333;
+}
+
+.sample {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.toggles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(
     90deg,
     transparent 0%,
     transparent 24.9%,
-    grey 25%,
+    #555 25%,
     transparent 25.2%,
     transparent 49.9%,
-    grey 50%,
+    #555 50%,
     transparent 50.1%,
     transparent 74.9%,
-    grey 75%,
+    #555 75%,
     transparent 75.1%,
-    transparent 100%)
-    ;
-}
-.toggles .flex-row{
-  height:100%;
+    transparent 100%
+  );
 }
 
-.trig{
-  border: 2pt solid blue !important;
+.toggles .flex-row {
+  flex: 1;
+  min-height: 0;
 }
 
-
-.button{
-  border: 2pt  dashed rgb(125,0, 175);
-  width:100%;
-  margin:5px;
-  height:100%;
-  position: relative
+.flex-row {
+  display: flex;
+  width: 100%;
 }
 
-.button.on{
-  background-color: rgb(125,0, 175);
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.button {
+  flex: 1;
+  min-width: 0;
+  margin: 2px;
+  border: 1px dashed rgb(125, 0, 175);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
 }
 
+.button.on {
+  background-color: rgb(125, 0, 175);
+}
 
-.sample button{
-  border: 1pt solid rgb(125,0, 175);
+.trig {
+  border: 2px solid #4af !important;
+}
+
+/* ── Global inputs / buttons ───────────────────────────────────────────── */
+
+input {
+  border: 1px solid grey;
+  border-radius: 3px;
+  padding: 2px 4px;
+  background-color: #222;
+  color: white;
+  margin: 0 2px;
+}
+
+button {
+  border: 1px solid #666;
   background-color: transparent;
   color: white;
-  margin: 15px 15px;
-  height:40px;
-  width:70px;
-}
-.sample button.on{
-  background:rgb(125,0, 175);
+  padding: 2px 6px;
+  cursor: pointer;
+  font-size: 11px;
 }
 
-.header{
+button.on {
+  background: rgb(125, 0, 175);
+  border-color: rgb(125, 0, 175);
+}
+
+select {
+  background-color: #222;
+  color: white;
+  border: 1px solid #666;
+  padding: 2px 4px;
+  font-size: 11px;
+}
+
+/* ── Sample panel sub-elements ─────────────────────────────────────────── */
+
+.sample button {
+  border: 1px solid rgb(125, 0, 175);
+  height: 22px;
+  width: auto;
+  padding: 0 6px;
+  margin: 0 2px 0 0;
+}
+
+.sample button.on {
+  background: rgb(125, 0, 175);
+}
+
+.midi-output-config {
   display: flex;
-  flex-flow: row;
-  height:200px;
-  background-color: rgba(20,20,20);
-  width: 100%;
-  padding:10px;
-  box-sizing: border-box;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
 }
 
-.header input{
-  width:50px;
-}
-
-.header > div{
-  margin: 0 15px;
-  display: inline-block
-}
-
-.metronome{
-  border: 1pt solid lightgrey;
-  height: 100%;
-  box-sizing:border-box;
-}
-
-.metronome div{
-  border: 1pt solid lightgrey;
-  height:100%;
-  margin: 0 5px;
-  box-sizing:border-box;
-}
-
-.metronome div.on{
-  background: white;
-}
-
-input{
-  border: 1pt solid grey;
-  border-radius: 3px;
-  padding: 3px;
-  background-color: #222222;
-  color:white;
-  margin: 0 5px;
-}
-
-.flex-row{
+.midi-output-config label {
   display: flex;
-  width:100%;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.midi-output-config input {
+  width: 44px;
+}
+
+/* ── Settings modal ────────────────────────────────────────────────────── */
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.settings-modal {
+  background: #1e1e1e;
+  border: 1px solid #555;
+  padding: 20px;
+  min-width: 400px;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.settings-modal__close {
+  border: none;
+  font-size: 12px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section__title {
+  margin: 0 0 4px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #aaa;
+  border-bottom: 1px solid #333;
+  padding-bottom: 4px;
+}
+
+.settings__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.settings__label {
+  width: 120px;
+  flex-shrink: 0;
+  color: #aaa;
+  font-size: 11px;
+}
+
+.settings__input--wide {
+  flex: 1;
+}
+
+.settings__device-list {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  align-items: flex-start;
+}
+
+.settings__device-list ul {
+  margin: 0;
+  padding: 0 0 0 12px;
+  color: #aaa;
+}
+
+.settings__unsupported {
+  color: #aaa;
+  font-size: 11px;
+  margin: 0;
+}
+
+/* ── Google Drive panel ────────────────────────────────────────────────── */
+
+.google-drive-panel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drive-status {
+  font-size: 10px;
+  color: #aaa;
+  margin-left: 4px;
 }
