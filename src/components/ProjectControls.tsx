@@ -6,6 +6,7 @@ import { encodeToUrl } from '../persistence/urlState';
 import { deserializeLayers, serialize } from '../persistence/serialization';
 import { ProjectState } from '../persistence/types';
 import { LayerMap } from '../types';
+import { GoogleDrivePanel } from './GoogleDrivePanel';
 
 export interface ProjectControlsOwnProps {
   layers: LayerMap;
@@ -97,6 +98,10 @@ class ProjectControlsInner extends Component<ProjectControlsProps> {
         <button onClick={this.onSave.bind(this)}>Save</button>
         <button onClick={() => void this.onLoad()}>Load</button>
         <button onClick={this.onCopyLink.bind(this)}>Copy link</button>
+        <GoogleDrivePanel
+          getProject={this.getProject.bind(this)}
+          onProjectLoad={this.applyProject.bind(this)}
+        />
       </div>
     );
   }
