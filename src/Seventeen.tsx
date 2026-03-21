@@ -2,15 +2,15 @@ import { Component } from 'react';
 import { getAC } from './audio';
 import { Header } from './components/Header';
 import { Layer } from './components/Layer';
-import { MidiSettings } from './components/MidiSettings';
 import { ProjectControls } from './components/ProjectControls';
+import { SettingsModal } from './components/SettingsModal';
 import { SoundProvider } from './context/RhythmeContext';
 import { loadFromLocalStorage } from './persistence/localStorage';
 import { deserializeLayers } from './persistence/serialization';
 import { ProjectState } from './persistence/types';
 import { clearUrlHash, loadFromUrl } from './persistence/urlState';
 import { get_sample, get_sample_by_id } from './freesound';
-import { Layer as LayerData, LayerMap, SeventeenState, repeat } from './types';
+import { Layer as LayerData, LayerMap, repeat } from './types';
 
 const default_layer = (sample_query: string, id: number): LayerData => ({
   id,
@@ -47,7 +47,13 @@ function loadInitialProject(): ProjectState | null {
 
 interface SeventeenProps {
   freesound_api_key: string;
+  onApiKeyChange: (key: string) => void;
   initialTempo?: number;
+}
+
+interface SeventeenState {
+  layers: LayerMap;
+  settingsOpen: boolean;
 }
 
 
@@ -59,6 +65,7 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
     this.initialProject = loadInitialProject();
     this.state = {
       layers: this.initialProject ? deserializeLayers(this.initialProject) : defaultLayers,
+      settingsOpen: false,
     };
   }
 
@@ -150,14 +157,24 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
         playing={true}
       >
         <div className="seventeen">
-          <Header />
-          <MidiSettings />
-          <ProjectControls
-            layers={this.state.layers}
-            initialProject={this.initialProject}
-            onProjectLoad={this.handleProjectLoad.bind(this)}
-          />
-          {layers}
+          <div className="toolbar">
+            <Header onOpenSettings={() => this.setState({ settingsOpen: true })} />
+            <ProjectControls
+              layers={this.state.layers}
+              initialProject={this.initialProject}
+              onProjectLoad={this.handleProjectLoad.bind(this)}
+            />
+          </div>
+          <div className="layers">
+            {layers}
+          </div>
+          {this.state.settingsOpen && (
+            <SettingsModal
+              apiKey={this.props.freesound_api_key}
+              onApiKeyChange={this.props.onApiKeyChange}
+              onClose={() => this.setState({ settingsOpen: false })}
+            />
+          )}
         </div>
       </SoundProvider>
     );

@@ -1,67 +1,54 @@
 import { Component } from 'react';
-import {
-  RhythmeContextValue,
-  withRythmeContext,
-} from '../context/RhythmeContext';
+import { RhythmeContextValue, withRythmeContext } from '../context/RhythmeContext';
 
-interface HeaderProps {
+interface HeaderOwnProps {
+  onOpenSettings: () => void;
+}
+
+interface HeaderProps extends HeaderOwnProps {
   contextValue: RhythmeContextValue;
 }
 
 class HeaderInner extends Component<HeaderProps> {
   updateTempo(e: React.ChangeEvent<HTMLInputElement>): void {
-    this.props.contextValue.updateContext({
-      tempo: parseFloat(e.target.value),
-    });
-  }
-
-  updateBeat(e: React.ChangeEvent<HTMLInputElement>): void {
-    this.props.contextValue.updateContext({
-      beat: parseInt(e.target.value, 10),
-    });
+    this.props.contextValue.updateContext({ tempo: parseFloat(e.target.value) });
   }
 
   updateSpeed(e: React.ChangeEvent<HTMLInputElement>): void {
-    this.props.contextValue.updateContext({
-      speed: parseFloat(e.target.value),
-    });
+    this.props.contextValue.updateContext({ speed: parseFloat(e.target.value) });
   }
 
   render() {
     const beat = this.props.contextValue.beat % 16;
     return (
       <div className="header">
-        <input
-          value={this.props.contextValue.tempo}
-          onChange={this.updateTempo.bind(this)}
-          type="number"
-          step="0.5"
-        />
-        <input
-          value={this.props.contextValue.beat % 64}
-          onChange={this.updateBeat.bind(this)}
-          type="number"
-          step="1"
-        />
-        <input
-          value={this.props.contextValue.speed}
-          onChange={this.updateSpeed.bind(this)}
-          type="number"
-          step="1"
-        />
+        <span className="header__title">seventeen</span>
+        <label className="header__field">
+          <span>bpm</span>
+          <input
+            value={this.props.contextValue.tempo}
+            onChange={this.updateTempo.bind(this)}
+            type="number"
+            step="0.5"
+          />
+        </label>
+        <label className="header__field">
+          <span>speed</span>
+          <input
+            value={this.props.contextValue.speed}
+            onChange={this.updateSpeed.bind(this)}
+            type="number"
+            step="1"
+          />
+        </label>
         <span className="metronome">
-          {[0, 1, 2, 3, 4, 5, 6, 7]
-            .map((x) => x * 2)
-            .map((i) => (
-              <div
-                key={i}
-                className={beat > i ? 'on' : ''}
-                style={{ display: 'inline-block', width: '10px' }}
-              />
-            ))}
+          {Array.from({ length: 16 }, (_, i) => (
+            <span key={i} className={i === beat ? 'metronome__tick metronome__tick--on' : 'metronome__tick'} />
+          ))}
         </span>
-        <div>beat current: {this.props.contextValue.beat}</div>
-        <div>total: {this.props.contextValue.beat_count}</div>
+        <button className="header__settings-btn" onClick={this.props.onOpenSettings}>
+          [settings]
+        </button>
       </div>
     );
   }

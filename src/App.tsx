@@ -14,8 +14,7 @@ class App extends Component<Record<string, never>, AppState> {
     };
   }
 
-  updateApiKey(e: React.ChangeEvent<HTMLInputElement>): void {
-    const apiKey = e.target.value;
+  updateApiKey(apiKey: string): void {
     this.setState({ apiKey });
     window.localStorage.setItem('freesound_api_key', apiKey);
   }
@@ -23,18 +22,10 @@ class App extends Component<Record<string, never>, AppState> {
   render() {
     return (
       <div className="App">
-        <Seventeen freesound_api_key={this.state.apiKey} />
-        <div className="freesound-key">
-          <label>
-            Freesound key
-            <input
-              type="password"
-              value={this.state.apiKey}
-              placeholder="optional — not needed for MIDI-only use"
-              onChange={this.updateApiKey.bind(this)}
-            />
-          </label>
-        </div>
+        <Seventeen
+          freesound_api_key={this.state.apiKey}
+          onApiKeyChange={this.updateApiKey.bind(this)}
+        />
       </div>
     );
   }
