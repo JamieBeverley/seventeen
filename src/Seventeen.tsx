@@ -20,6 +20,7 @@ const default_layer = (sample_query: string, id: number): LayerData => ({
   freesound_data: {},
   send_1: 0,
   send_2: 0,
+  output: { type: 'audio' },
 });
 
 const defaultState: SeventeenState = {

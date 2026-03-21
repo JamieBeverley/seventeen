@@ -1,3 +1,7 @@
+import type { OutputConfig } from './output/types';
+
+export type { OutputConfig };
+
 export interface FreesoundPreviews {
   'preview-hq-mp3': string;
   'preview-hq-ogg': string;
@@ -43,6 +47,7 @@ export interface Layer {
   freesound_data: Partial<FreesoundSoundData>;
   send_1: number;
   send_2: number;
+  output: OutputConfig;
 }
 
 export type LayerMap = Record<number, Layer>;

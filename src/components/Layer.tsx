@@ -1,9 +1,9 @@
 import { Component } from 'react';
-import { getAC } from '../audio';
 import {
   RhythmeContextValue,
   withRythmeContext,
 } from '../context/RhythmeContext';
+import { createOutputHandler, OutputHandler } from '../output';
 import { Layer as LayerData, repeat } from '../types';
 import { Button } from './Button';
 
@@ -18,37 +18,44 @@ interface LayerProps extends LayerOwnProps {
 }
 
 class LayerInner extends Component<LayerProps> {
-  source: AudioBufferSourceNode | null = null;
+  private outputHandler: OutputHandler;
+
+  constructor(props: LayerProps) {
+    super(props);
+    this.outputHandler = createOutputHandler(props.output);
+  }
 
   componentDidUpdate(prevProps: LayerProps): void {
+    // Rebuild handler when output type changes
+    if (prevProps.output.type !== this.props.output.type) {
+      this.outputHandler.stop();
+      this.outputHandler = createOutputHandler(this.props.output);
+    }
+
     if (prevProps.contextValue.beat !== this.props.contextValue.beat) {
       const beat = this.props.contextValue.beat % this.props.toggles.length;
-      const on = this.props.toggles[beat];
-      if (on && !this.props.mute) {
-        this.play();
+      if (this.props.toggles[beat] && !this.props.mute) {
+        this.trigger();
       }
     }
   }
 
-  play(): void {
-    if (this.props.buffer === null) return;
-    if (this.source && this.props.cut) {
-      this.source.stop();
-    }
-    const offset = this.props.buffer.duration * this.props.start;
-    const duration = Math.abs(
-      this.props.buffer.duration * (this.props.start - this.props.end)
-    );
-    const ac = getAC();
-    this.source = ac.createBufferSource();
-    this.source.playbackRate.value = this.props.playback_speed;
-    this.source.buffer = this.props.buffer;
-    this.source.connect(ac.destination);
-    this.source.start(0, offset, duration);
+  componentWillUnmount(): void {
+    this.outputHandler.stop();
+  }
+
+  trigger(): void {
+    this.outputHandler.trigger({
+      buffer: this.props.buffer,
+      start: this.props.start,
+      end: this.props.end,
+      playbackSpeed: this.props.playback_speed,
+      cut: this.props.cut,
+    });
   }
 
   onMute(): void {
-    if (this.source) this.source.stop();
+    this.outputHandler.stop();
     this.props.onMute();
   }
 
@@ -74,9 +81,7 @@ class LayerInner extends Component<LayerProps> {
   }
 
   onLengthChange(e: React.FormEvent<HTMLInputElement>): void {
-    const value = Math.round(
-      parseFloat((e.target as HTMLInputElement).value)
-    );
+    const value = Math.round(parseFloat((e.target as HTMLInputElement).value));
     if (isNaN(value)) return;
     let toggles = [...this.props.toggles.slice(0, value)];
     const diff = value - toggles.length;
@@ -118,12 +123,15 @@ class LayerInner extends Component<LayerProps> {
   }
 
   render() {
+    const isAudio = this.props.output.type === 'audio';
+
     return (
       <div className="layer">
         <div className="sample">
           <div>
             <b style={{ display: 'inline-block' }}>{this.props.sample_query} </b>
-            {` ${this.props.freesound_data.name ?? ''} (${this.props.freesound_data.username ?? ''})`}
+            {isAudio &&
+              ` ${this.props.freesound_data.name ?? ''} (${this.props.freesound_data.username ?? ''})`}
           </div>
           <div>
             <button
@@ -133,39 +141,43 @@ class LayerInner extends Component<LayerProps> {
             >
               mute
             </button>
-            <button
-              style={{ display: 'inline-block' }}
-              className={this.props.cut ? 'on' : ''}
-              onClick={this.onCut.bind(this)}
-            >
-              cut
-            </button>
+            {isAudio && (
+              <button
+                style={{ display: 'inline-block' }}
+                className={this.props.cut ? 'on' : ''}
+                onClick={this.onCut.bind(this)}
+              >
+                cut
+              </button>
+            )}
           </div>
-          <div>
-            <input
-              value={this.props.start}
-              onInput={this.onStartChange.bind(this)}
-              type="number"
-              min="0"
-              max="1"
-              step=".01"
-            />
-            <input
-              value={this.props.end}
-              onInput={this.onEndChange.bind(this)}
-              type="number"
-              min="0"
-              max="1"
-              step=".01"
-            />
-            <input
-              value={this.props.playback_speed}
-              onInput={this.onSpeedChange.bind(this)}
-              type="number"
-              min="0"
-              step=".1"
-            />
-          </div>
+          {isAudio && (
+            <div>
+              <input
+                value={this.props.start}
+                onInput={this.onStartChange.bind(this)}
+                type="number"
+                min="0"
+                max="1"
+                step=".01"
+              />
+              <input
+                value={this.props.end}
+                onInput={this.onEndChange.bind(this)}
+                type="number"
+                min="0"
+                max="1"
+                step=".01"
+              />
+              <input
+                value={this.props.playback_speed}
+                onInput={this.onSpeedChange.bind(this)}
+                type="number"
+                min="0"
+                step=".1"
+              />
+            </div>
+          )}
           <div>
             <input
               type="number"
