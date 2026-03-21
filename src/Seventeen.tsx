@@ -5,6 +5,9 @@ import { Layer } from './components/Layer';
 import { MidiSettings } from './components/MidiSettings';
 import { ProjectControls } from './components/ProjectControls';
 import { SoundProvider } from './context/RhythmeContext';
+import { loadFromLocalStorage } from './persistence/localStorage';
+import { deserializeLayers } from './persistence/serialization';
+import { ProjectState } from './persistence/types';
 import { get_sample, get_sample_by_id } from './freesound';
 import { Layer as LayerData, LayerMap, SeventeenState, repeat } from './types';
 
@@ -27,15 +30,25 @@ const default_layer = (sample_query: string, id: number): LayerData => ({
 const defaultLayers: LayerMap = ['piano', 'orchestra', 'kick', 'shaker', 'hat', 'snare']
   .map(default_layer) as unknown as LayerMap;
 
+/** Override point — later stages (URL, Drive) swap in their own sources. */
+function loadInitialProject(): ProjectState | null {
+  return loadFromLocalStorage();
+}
+
 interface SeventeenProps {
   freesound_api_key: string;
   initialTempo?: number;
 }
 
 export class Seventeen extends Component<SeventeenProps, SeventeenState> {
+  private readonly initialProject: ProjectState | null;
+
   constructor(props: SeventeenProps) {
     super(props);
-    this.state = { layers: defaultLayers };
+    this.initialProject = loadInitialProject();
+    this.state = {
+      layers: this.initialProject ? deserializeLayers(this.initialProject) : defaultLayers,
+    };
   }
 
   componentDidMount(): void {
@@ -112,12 +125,16 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
     });
 
     return (
-      <SoundProvider initialTempo={this.props.initialTempo ?? 120} playing={true}>
+      <SoundProvider
+        initialTempo={this.initialProject?.tempo ?? this.props.initialTempo ?? 120}
+        playing={true}
+      >
         <div className="seventeen">
           <Header />
           <MidiSettings />
           <ProjectControls
             layers={this.state.layers}
+            initialProject={this.initialProject}
             onProjectLoad={this.handleProjectLoad.bind(this)}
           />
           {layers}
