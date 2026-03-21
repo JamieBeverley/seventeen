@@ -57,5 +57,5 @@ export interface SeventeenState {
 }
 
 export function repeat<T>(x: T, n: number): T[] {
-  return Array.apply(x, Array(n) as T[]) as T[];
+  return Array.from({ length: n }, () => x);
 }

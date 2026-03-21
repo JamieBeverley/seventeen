@@ -250,11 +250,17 @@ export class MidiClock {
     // Keep a rolling window of 2 quarter notes worth of pulses
     if (this.pulseTimes.length > PPQN * 2) this.pulseTimes.shift();
 
-    if (this.pulseTimes.length >= PPQN) {
-      const oldest = this.pulseTimes[0];
-      const newest = this.pulseTimes[this.pulseTimes.length - 1];
-      const avgInterval = (newest - oldest) / (this.pulseTimes.length - 1);
-      const bpm = Math.round((60000 / (avgInterval * PPQN)) * 10) / 10;
+    if (this.pulseTimes.length < 2) return;
+
+    const oldest = this.pulseTimes[0];
+    const newest = this.pulseTimes[this.pulseTimes.length - 1];
+    const elapsed = newest - oldest;
+    if (elapsed <= 0) return;
+
+    const avgInterval = elapsed / (this.pulseTimes.length - 1);
+    const bpm = Math.round((60000 / (avgInterval * PPQN)) * 10) / 10;
+    // Sanity-clamp: ignore wildly out-of-range readings (e.g. first pulse pair)
+    if (bpm >= 20 && bpm <= 300) {
       this.callbacks.onTempoChange(bpm);
     }
   }

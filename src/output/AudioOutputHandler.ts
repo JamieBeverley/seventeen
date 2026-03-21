@@ -11,9 +11,7 @@ export class AudioOutputHandler implements OutputHandler {
     }
     const ac = getAC();
     const offset = params.buffer.duration * params.start;
-    const duration = Math.abs(
-      params.buffer.duration * (params.start - params.end)
-    );
+    const duration = params.buffer.duration * (params.end - params.start);
     this.source = ac.createBufferSource();
     this.source.playbackRate.value = params.playbackSpeed;
     this.source.buffer = params.buffer;

@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-yarn start    # Dev server at http://localhost:3000
-yarn build    # Production build to /build
-yarn test     # Run tests (watch mode)
+yarn dev      # Dev server at http://localhost:5173
+yarn build    # Type-check + production build to /dist
+yarn test     # Run tests (vitest, no watch)
 ```
 
 To run a single test file:
@@ -17,29 +17,33 @@ yarn test -- --testPathPattern=App.test
 
 ## Architecture
 
-This is a **musical step sequencer** web app built with React 17 (class components) and the Web Audio API. It uses the Freesound.org API v2 to fetch audio samples.
+Musical step sequencer built with React 18 (class components), TypeScript, Vite 6, and the Web Audio API. Uses the Freesound.org API v2 for audio samples and the Web MIDI API for clock sync and note output.
 
 ### Data flow
 
-1. `App` prompts for a Freesound API key (stored in `localStorage`), then renders the `Seventeen` component.
-2. `Seventeen` fetches 6 audio buffers from Freesound on mount and manages per-layer state.
-3. `SoundProvider` (React Context in `App.js`) owns the global beat clock — a `setTimeout`-based scheduler that increments a beat counter at the current BPM. It also holds a Web Audio `DelayNode` for effects.
-4. Each `Layer` subscribes to context beats. When the current beat matches an active step button, it fires a `BufferSource` playback with the configured trim/speed settings.
+1. `App.tsx` — prompts for a Freesound API key (stored in `localStorage`), then renders `Seventeen`.
+2. `Seventeen.tsx` — manages the `LayerMap` (6 tracks). Loads initial state from URL hash, then `localStorage`, then defaults. Fetches missing audio buffers from Freesound on mount and after project load.
+3. `SoundProvider` (`context/RhythmeContext.tsx`) — owns the global clock via `MidiClock`, global tempo/speed/delay state, and all MIDI access. Exposes everything via `RhythmeContext`.
+4. Each `Layer` component (`components/Layer.tsx`) subscribes to the beat counter via context. On each tick it checks whether the current step is active and calls `OutputHandler.trigger()`.
 
-### Key files
+### Key directories
 
-- `src/App.js` — `App` root, `SoundProvider` context (clock + delay), `Seventeen` sequencer, `Layer` track, `Header` transport, `Button` step toggle. Almost all logic lives here.
-- `src/components/NodeComponent/index.jsx` — Abstract audio node base class (WIP).
-- `src/components/Mixer/index.jsx` — Mixer node extending NodeComponent (WIP; CSS stub).
-- `src/components/Delay/index.jsx` — Delay component (WIP; CSS stub).
+- `src/midi/` — `MidiClock` class: internal (drift-corrected setTimeout), MIDI master (sends 0xF8 pulses), MIDI slave (estimates BPM from incoming pulses). 24 PPQN standard; 6 pulses per 16th-note beat.
+- `src/output/` — `OutputHandler` interface with `AudioOutputHandler` (Web Audio BufferSource) and `MidiOutputHandler` (Note On/Off). Factory in `index.ts`. `Layer` recreates the handler on type change; calls `updateConfig()` for config-only changes.
+- `src/persistence/` — four independent modules:
+  - `serialization.ts` — `serialize()` / `deserializeLayers()` / `parseProjectState()` (validates shape)
+  - `fileIO.ts` — download as JSON blob; pick and parse local `.json` file
+  - `localStorage.ts` — auto-save with 1s debounce in `ProjectControls`
+  - `urlState.ts` — base64(encodeURIComponent(JSON)) in URL hash; cleared after load
+  - `googleDrive.ts` — GIS token flow (drive.file scope), Drive REST multipart upload, Picker; only active when `VITE_GOOGLE_CLIENT_ID` is set
 
 ### Audio engine notes
 
-- `AudioContext` is created inside `SoundProvider`.
-- Each `Layer` decodes its fetched audio into an `AudioBuffer` and stores it in component state.
-- Playback uses `createBufferSource()` with `start(when, offset, duration)` to honour the trim range (`startTrim`/`endTrim` as 0–1 fractions of buffer length) and `playbackRate` for speed control.
-- The delay node uses `delayTime` and a feedback `GainNode` routed back into itself.
+- `AudioContext` is a lazy singleton in `src/audio.ts` (created on first call to `getAC()`, not at module load — avoids crashing jsdom in tests).
+- Trim: `start`/`end` are 0–1 fractions of buffer duration; mapped to `offset` and `duration` in `AudioBufferSourceNode.start(0, offset, duration)`.
+- Delay: a `DelayNode` + feedback `GainNode` feedback loop, wired inside `SoundProvider`.
+- `playbackRate` on `BufferSource` is multiplied by the layer's `playback_speed`.
 
-### Freesound API
+### State restoration across SoundProvider boundary
 
-Layers are initialised with a search tag (e.g. `"piano"`, `"kick"`). `Seventeen` fetches `/search/text/?query=<tag>&token=<key>` and picks the first result's `previews["preview-hq-mp3"]` URL for playback.
+`Seventeen` (parent of `SoundProvider`) cannot consume context. Solution: `Seventeen` restores `layers` and passes `initialTempo` as prop to `SoundProvider`; `ProjectControls` (inside `SoundProvider`) restores `speed`, `clockMode`, and MIDI IDs in `componentDidMount` via `contextValue`.

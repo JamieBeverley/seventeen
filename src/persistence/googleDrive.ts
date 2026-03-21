@@ -53,48 +53,27 @@ declare global {
   }
 }
 
-let tokenClient: TokenClient | null = null;
 let accessToken: string | null = null;
 
-function getTokenClient(): TokenClient {
-  if (!window.google) throw new Error('GIS script not loaded');
-  if (!CLIENT_ID) throw new Error('VITE_GOOGLE_CLIENT_ID is not set');
-  if (!tokenClient) {
-    tokenClient = window.google.accounts.oauth2.initTokenClient({
+/**
+ * Request (or silently refresh) a Drive access token.
+ * GIS requires re-creating the token client to swap in a promise-resolving
+ * callback — the callback is not configurable after init.
+ */
+export function requestDriveAccess(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!window.google) { reject(new Error('GIS script not loaded')); return; }
+    if (!CLIENT_ID) { reject(new Error('VITE_GOOGLE_CLIENT_ID is not set')); return; }
+    const client = window.google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: SCOPES,
       callback: (resp) => {
-        if (resp.error) throw new Error(`GIS error: ${resp.error}`);
+        if (resp.error) { reject(new Error(`GIS error: ${resp.error}`)); return; }
         accessToken = resp.access_token ?? null;
+        resolve();
       },
     });
-  }
-  return tokenClient;
-}
-
-/** Request (or silently refresh) an access token. Resolves once the token is available. */
-export function requestDriveAccess(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    try {
-      const client = getTokenClient();
-      const origCallback = (window.google!.accounts.oauth2.initTokenClient as unknown as {
-        _cb?: (r: { access_token?: string; error?: string }) => void;
-      })._cb;
-      // Patch callback for this call
-      tokenClient = window.google!.accounts.oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: SCOPES,
-        callback: (resp) => {
-          if (resp.error) { reject(new Error(`GIS error: ${resp.error}`)); return; }
-          accessToken = resp.access_token ?? null;
-          resolve();
-        },
-      });
-      void origCallback; // suppress unused warning
-      tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
-    } catch (err) {
-      reject(err);
-    }
+    client.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
   });
 }
 

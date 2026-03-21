@@ -174,7 +174,7 @@ export class SoundProvider extends Component<
   }
 
   updateContext(items: Partial<SoundProviderState>): void {
-    this.setState({ ...this.state, ...items });
+    this.setState(items as SoundProviderState);
   }
 
   async requestMidiAccess(): Promise<void> {
