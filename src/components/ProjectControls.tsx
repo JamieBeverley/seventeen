@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { RhythmeContextValue, withRythmeContext } from '../context/RhythmeContext';
 import { downloadProject, pickProjectFile } from '../persistence/fileIO';
 import { loadFromLocalStorage, saveToLocalStorage } from '../persistence/localStorage';
+import { encodeToUrl } from '../persistence/urlState';
 import { deserializeLayers, serialize } from '../persistence/serialization';
 import { ProjectState } from '../persistence/types';
 import { LayerMap } from '../types';
@@ -85,11 +86,17 @@ class ProjectControlsInner extends Component<ProjectControlsProps> {
     }
   }
 
+  onCopyLink(): void {
+    const url = encodeToUrl(this.getProject());
+    void navigator.clipboard.writeText(url);
+  }
+
   render() {
     return (
       <div className="project-controls">
         <button onClick={this.onSave.bind(this)}>Save</button>
         <button onClick={() => void this.onLoad()}>Load</button>
+        <button onClick={this.onCopyLink.bind(this)}>Copy link</button>
       </div>
     );
   }

@@ -8,6 +8,7 @@ import { SoundProvider } from './context/RhythmeContext';
 import { loadFromLocalStorage } from './persistence/localStorage';
 import { deserializeLayers } from './persistence/serialization';
 import { ProjectState } from './persistence/types';
+import { clearUrlHash, loadFromUrl } from './persistence/urlState';
 import { get_sample, get_sample_by_id } from './freesound';
 import { Layer as LayerData, LayerMap, SeventeenState, repeat } from './types';
 
@@ -30,8 +31,17 @@ const default_layer = (sample_query: string, id: number): LayerData => ({
 const defaultLayers: LayerMap = ['piano', 'orchestra', 'kick', 'shaker', 'hat', 'snare']
   .map(default_layer) as unknown as LayerMap;
 
-/** Override point — later stages (URL, Drive) swap in their own sources. */
+/**
+ * Priority: URL hash (shared link) > localStorage (auto-save) > null (defaults).
+ * The hash is cleared after loading so the URL reflects the current state
+ * rather than the original share link.
+ */
 function loadInitialProject(): ProjectState | null {
+  const fromUrl = loadFromUrl();
+  if (fromUrl) {
+    clearUrlHash();
+    return fromUrl;
+  }
   return loadFromLocalStorage();
 }
 
