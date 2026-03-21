@@ -3,7 +3,12 @@ import {
   RhythmeContextValue,
   withRythmeContext,
 } from '../context/RhythmeContext';
-import { createOutputHandler, OutputHandler } from '../output';
+import {
+  createOutputHandler,
+  MidiOutputHandler,
+  MidiNoteConfig,
+  OutputHandler,
+} from '../output';
 import { Layer as LayerData, repeat } from '../types';
 import { Button } from './Button';
 
@@ -22,14 +27,28 @@ class LayerInner extends Component<LayerProps> {
 
   constructor(props: LayerProps) {
     super(props);
-    this.outputHandler = createOutputHandler(props.output);
+    this.outputHandler = createOutputHandler(
+      props.output,
+      props.contextValue.getMidiOutput
+    );
   }
 
   componentDidUpdate(prevProps: LayerProps): void {
-    // Rebuild handler when output type changes
     if (prevProps.output.type !== this.props.output.type) {
+      // Output type changed — replace the handler entirely
       this.outputHandler.stop();
-      this.outputHandler = createOutputHandler(this.props.output);
+      this.outputHandler = createOutputHandler(
+        this.props.output,
+        this.props.contextValue.getMidiOutput
+      );
+    } else if (
+      this.props.output.type === 'midi' &&
+      prevProps.output !== this.props.output &&
+      this.outputHandler instanceof MidiOutputHandler
+    ) {
+      // Same type, config values changed — update in place to avoid
+      // interrupting a note that is currently sounding
+      this.outputHandler.updateConfig(this.props.output as MidiNoteConfig);
     }
 
     if (prevProps.contextValue.beat !== this.props.contextValue.beat) {
@@ -100,6 +119,32 @@ class LayerInner extends Component<LayerProps> {
     this.props.updateLayer({ toggles: this.props.toggles.slice(0, index) });
   }
 
+  onOutputTypeChange(e: React.ChangeEvent<HTMLSelectElement>): void {
+    const type = e.target.value as 'audio' | 'midi';
+    if (type === 'audio') {
+      this.props.updateLayer({ output: { type: 'audio' } });
+    } else {
+      this.props.updateLayer({
+        output: {
+          type: 'midi',
+          outputId: this.props.contextValue.midiOutputs[0]?.id ?? null,
+          channel: 1,
+          note: 60,
+          velocity: 100,
+          durationMs: 100,
+        },
+      });
+    }
+  }
+
+  onMidiFieldChange(field: keyof MidiNoteConfig, raw: string): void {
+    if (this.props.output.type !== 'midi') return;
+    const num = field === 'outputId' ? raw : parseInt(raw, 10);
+    this.props.updateLayer({
+      output: { ...this.props.output, [field]: num } as MidiNoteConfig,
+    });
+  }
+
   renderToggles(): React.ReactNode[] {
     const foldEvery = 16;
     const toggles = this.props.toggles.map((x, i) => (
@@ -122,8 +167,116 @@ class LayerInner extends Component<LayerProps> {
     return rows;
   }
 
+  renderOutputControls(): React.ReactNode {
+    const { output, contextValue } = this.props;
+
+    if (output.type === 'audio') {
+      return (
+        <>
+          <div>
+            <input
+              value={this.props.start}
+              onInput={this.onStartChange.bind(this)}
+              type="number"
+              min="0"
+              max="1"
+              step=".01"
+            />
+            <input
+              value={this.props.end}
+              onInput={this.onEndChange.bind(this)}
+              type="number"
+              min="0"
+              max="1"
+              step=".01"
+            />
+            <input
+              value={this.props.playback_speed}
+              onInput={this.onSpeedChange.bind(this)}
+              type="number"
+              min="0"
+              step=".1"
+            />
+          </div>
+          <div>
+            <button
+              style={{ display: 'inline-block' }}
+              className={this.props.cut ? 'on' : ''}
+              onClick={this.onCut.bind(this)}
+            >
+              cut
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    // MIDI output controls
+    const midi = output as MidiNoteConfig;
+    return (
+      <div className="midi-output-config">
+        <label>
+          out
+          <select
+            value={midi.outputId ?? ''}
+            onChange={(e) => this.onMidiFieldChange('outputId', e.target.value)}
+          >
+            <option value="">— none —</option>
+            {contextValue.midiOutputs.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          ch
+          <input
+            type="number"
+            min="1"
+            max="16"
+            value={midi.channel}
+            onChange={(e) => this.onMidiFieldChange('channel', e.target.value)}
+          />
+        </label>
+        <label>
+          note
+          <input
+            type="number"
+            min="0"
+            max="127"
+            value={midi.note}
+            onChange={(e) => this.onMidiFieldChange('note', e.target.value)}
+          />
+        </label>
+        <label>
+          vel
+          <input
+            type="number"
+            min="0"
+            max="127"
+            value={midi.velocity}
+            onChange={(e) => this.onMidiFieldChange('velocity', e.target.value)}
+          />
+        </label>
+        <label>
+          dur ms
+          <input
+            type="number"
+            min="1"
+            value={midi.durationMs}
+            onChange={(e) =>
+              this.onMidiFieldChange('durationMs', e.target.value)
+            }
+          />
+        </label>
+      </div>
+    );
+  }
+
   render() {
-    const isAudio = this.props.output.type === 'audio';
+    const { output, contextValue } = this.props;
+    const isAudio = output.type === 'audio';
 
     return (
       <div className="layer">
@@ -133,6 +286,7 @@ class LayerInner extends Component<LayerProps> {
             {isAudio &&
               ` ${this.props.freesound_data.name ?? ''} (${this.props.freesound_data.username ?? ''})`}
           </div>
+
           <div>
             <button
               style={{ display: 'inline-block' }}
@@ -141,43 +295,19 @@ class LayerInner extends Component<LayerProps> {
             >
               mute
             </button>
-            {isAudio && (
-              <button
-                style={{ display: 'inline-block' }}
-                className={this.props.cut ? 'on' : ''}
-                onClick={this.onCut.bind(this)}
+            {contextValue.midiHasAccess && (
+              <select
+                value={output.type}
+                onChange={this.onOutputTypeChange.bind(this)}
               >
-                cut
-              </button>
+                <option value="audio">audio</option>
+                <option value="midi">midi</option>
+              </select>
             )}
           </div>
-          {isAudio && (
-            <div>
-              <input
-                value={this.props.start}
-                onInput={this.onStartChange.bind(this)}
-                type="number"
-                min="0"
-                max="1"
-                step=".01"
-              />
-              <input
-                value={this.props.end}
-                onInput={this.onEndChange.bind(this)}
-                type="number"
-                min="0"
-                max="1"
-                step=".01"
-              />
-              <input
-                value={this.props.playback_speed}
-                onInput={this.onSpeedChange.bind(this)}
-                type="number"
-                min="0"
-                step=".1"
-              />
-            </div>
-          )}
+
+          {this.renderOutputControls()}
+
           <div>
             <input
               type="number"

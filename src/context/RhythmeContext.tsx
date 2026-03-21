@@ -36,6 +36,7 @@ export interface RhythmeContextValue {
     inputId?: string | null,
     outputId?: string | null
   ) => void;
+  getMidiOutput: (id: string) => MIDIOutput | undefined;
 }
 
 export const RhythmeContext = React.createContext<RhythmeContextValue>({
@@ -55,6 +56,7 @@ export const RhythmeContext = React.createContext<RhythmeContextValue>({
   setDelayTime: () => {},
   requestMidiAccess: async () => {},
   setClockMode: () => {},
+  getMidiOutput: () => undefined,
 });
 
 export interface SoundProviderProps {
@@ -193,6 +195,10 @@ export class SoundProvider extends Component<
     this.setState({ clockMode: mode, midiInputId: inputId, midiOutputId: outputId });
   }
 
+  getMidiOutput(id: string): MIDIOutput | undefined {
+    return this.clock.getAccess()?.outputs.get(id);
+  }
+
   render(): React.ReactNode {
     const value: RhythmeContextValue = {
       ...this.state,
@@ -201,6 +207,7 @@ export class SoundProvider extends Component<
       setDelayTime: this.setDelayTime.bind(this),
       requestMidiAccess: this.requestMidiAccess.bind(this),
       setClockMode: this.setClockMode.bind(this),
+      getMidiOutput: this.getMidiOutput.bind(this),
     };
 
     return (

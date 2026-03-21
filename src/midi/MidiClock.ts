@@ -68,6 +68,10 @@ export class MidiClock {
     return this.access !== null;
   }
 
+  getAccess(): MIDIAccess | null {
+    return this.access;
+  }
+
   getMode(): ClockMode {
     return this.mode;
   }
