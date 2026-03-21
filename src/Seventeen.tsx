@@ -50,6 +50,7 @@ interface SeventeenProps {
   initialTempo?: number;
 }
 
+
 export class Seventeen extends Component<SeventeenProps, SeventeenState> {
   private readonly initialProject: ProjectState | null;
 
@@ -65,13 +66,22 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
     this.fetchMissingBuffers(this.state.layers);
   }
 
+  componentDidUpdate(prevProps: SeventeenProps): void {
+    // When the API key is entered for the first time, fetch any pending buffers
+    if (!prevProps.freesound_api_key && this.props.freesound_api_key) {
+      this.fetchMissingBuffers(this.state.layers);
+    }
+  }
+
   /**
    * Fetch audio for any layer whose buffer is null.
    * If the layer has a saved freesound_id, reload the exact sample;
    * otherwise pick a random one from the search query.
+   * Does nothing when the API key is not set.
    */
   fetchMissingBuffers(layers: LayerMap): void {
     const apiKey = this.props.freesound_api_key;
+    if (!apiKey) return;
     const ctx = getAC();
     Object.entries(layers).forEach(([idStr, layer]) => {
       if (layer.buffer !== null) return;

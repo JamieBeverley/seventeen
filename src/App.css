@@ -146,3 +146,14 @@ input{
   display: flex;
   width:100%;
 }
+
+.freesound-key {
+  padding: 8px 15px;
+  font-size: 11px;
+  color: #888;
+}
+
+.freesound-key input {
+  width: 260px;
+  font-size: 11px;
+}
