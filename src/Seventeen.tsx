@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { getAC } from './audio';
 import { Header } from './components/Header';
 import { Layer } from './components/Layer';
+import { MidiSettings } from './components/MidiSettings';
 import { SoundProvider } from './context/RhythmeContext';
 import { get_sample } from './freesound';
 import { Layer as LayerData, LayerMap, SeventeenState, repeat } from './types';
@@ -93,6 +94,7 @@ export class Seventeen extends Component<SeventeenProps, SeventeenState> {
       <SoundProvider initialTempo={120} playing={true}>
         <div className="seventeen">
           <Header />
+          <MidiSettings />
           {layers}
         </div>
       </SoundProvider>
