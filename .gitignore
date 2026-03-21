@@ -10,6 +10,17 @@
 
 # production
 /build
+/dist
+
+# typescript build info
+*.tsbuildinfo
+
+# yarn berry
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.yarnrc.yml
 
 # misc
 .DS_Store
